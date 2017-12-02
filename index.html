@@ -1,0 +1,1153 @@
+<!doctype html>
+<!--
+v1: created title and subtitle 
+    - setTimeout functions
+    - typed.js
+    - CSS for title/subtitle, applied to everything on page
+
+v2: lists all passwords on the screen using d3
+    - getData() fn 
+    - draw() fn -> create and draw paragraphs to the body  
+    - changes in CSS to make paragraph text white, not green
+
+v3: no longer liststs passwords; instead, uses lenght of password to draw lines on the screen
+    - see: "D3 - Getting Data to Draw with SVG" video on Panopto
+    - created SVG object
+    - adds lines to the SVG object based on a scale factor and password character count
+    - added line breaks in <body> to create space between title/subtitle and SVG
+
+v4: trying to implement icicle chart found online (see links below) with that site's code 
+    - removed my javascript lines 
+    - added their code
+    - beginning to discover how to structure data hierarchacly for this format 
+v5: adding functionality
+    - added keyboard w/ icicle chart
+v6: creating my own icicle chart
+    - converting csv to json with code
+v7: minor changes
+v8: trying out a cool new chart style
+v7 (again): I broke everything and reverted to a previous version
+    - http://mbostock.github.io/d3/talk/20111018/partition.html
+v9: colors programmatically
+v10: final touches
+    - delete "password buttons" & create dropdown menu for keyboard 
+
+
+-->
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Cracking Common Passwords</title>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+	<script type="text/javascript" src="https://cdn.bootcss.com/typed.js/1.1.4/typed.min.js"></script>
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    
+    <script type="text/javascript">
+        setTimeout(function(){
+           $(".write").typed({
+              strings: ["Cracking Common Passwords"],
+               typeSpeed: 50,
+               callback: function(){} // call fn after typing is done
+           });     
+       }, 0);
+
+        setTimeout(function(){
+            $(".write2").typed({
+                strings:["&lt;hack&gt; I'm in &lt;/hack&gt;","Kim Lytle (kml4bz)"],
+                typeSpeed: 55,
+                backDelay: 3000, //pause before backspace 
+        });
+        },3500);
+             
+        
+    </script>
+
+    
+
+	<style>
+		.write, .write2{
+			font-size: 50px;
+            text-align: center;
+            color: #FFF; /* maybe use the characteristic green terminal color: #1EFF00*/
+		}
+        
+        .write2{
+            font-size: 30px; 
+        } /* this changes size of write2 (subtitle) font */
+		
+        body {
+          font-family: Monaco, Consolas, "Lucida Console", monospace;
+          background-color: black;
+          }
+        
+        p{
+            color: #FFF;
+        }
+
+        .chart {
+          display: block;
+          margin: auto;
+          margin-top: 60px;
+        }
+
+        rect {
+          stroke: #eee;
+          fill: #aaa;
+          fill-opacity: .8;
+        }
+
+        rect.parent {
+          cursor: pointer;
+        }
+
+        text {
+          pointer-events: none;
+        }
+
+        /* http://www.perbang.dk/rgbgradient/
+        Note: I put "q"s in front of the class names so some classes won't begin with a number (e.g. 3.21E+08 possible searches)
+        */
+        .q500{
+            fill: #666;
+        }
+        
+        /* categories */
+        .qname{
+            fill: #6BBFA8;
+        }
+        .qcool{
+            fill: #69BE7A;
+        }
+        .qeasy{
+            fill: #BE9869;
+        }
+        .qfluffy{
+            fill: #B269B7;
+        }
+        .qsport{
+            fill: #88C069;
+        }
+        .qanimal{
+            fill: #B7BF69;
+        }
+        .qnerdy{
+            fill: #8B6BC2;
+        }
+        .qpassword{
+            fill: #69A7BC;
+        }
+        .qrude{
+            fill: #C56B6F;
+        }
+        .qfood{
+            fill: #667AC1;
+        }
+        
+        
+
+        
+    /* Button Styles */
+        .button {
+      display: inline-block;
+      padding: 20px 30px;
+      font-size: 24px;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      outline: none;
+      color: #fff;
+      border: none;
+      border-radius: 15px;
+      box-shadow: 0 9px #999;
+      margin: 10px 5px; /* (vertical space) (horizontal space) */
+      
+    }
+
+        #nums{
+            position: relative;
+            left: 15px;
+        }
+        #qwerty{
+            position: relative;
+            left: 15px;
+        }
+         #asdf{
+            position: relative;
+            left: 15px;
+        }
+         #zxcv{
+            position: relative;
+            left: 15px;
+        }
+
+        .button:active {
+          background-color: #91ACC2;
+          box-shadow: 0 5px #666;
+          transform: translateY(4px);
+        }
+        
+        
+        /*   DROPDOWN CONTENT 
+        
+            https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_js_dropdown_right
+        
+        */
+        .dropbtn {
+            background-color: #7093b0;
+            border-radius: 15px;
+            color: white;
+            padding: 15px;
+            font-size: 25px;
+            border: none;
+        }
+        .dropdown {
+            position: absolute;
+            right: 180px;
+            top: 165px;
+            text-align: center;
+        }
+
+        .myDropdown {
+            display: none;
+            background-color: #f9f9f9;
+            min-width: 10px;
+            overflow: auto;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 2; /* stack order. we want this to be in front */
+            
+        }
+        
+
+        .show {display:block;}
+
+        .explain {
+            position: absolute;
+            left: 80px;
+            top: 80px;
+            text-align: center;
+            font-size: 25px;
+        }
+	</style>
+    
+    
+    
+    
+</head>
+<body>
+    
+    <center>
+    <div>
+        <span class="write"></span>
+    </div>
+
+    <div> 
+        <span class="write2"></span>
+    </div>
+</center>    
+    
+    <div class="explain">
+    <br/>
+        <p>Click on the categories</p>
+        <p>to explore passwords, </p>
+        <p>their search size,</p>
+        <p>and popularity.</p>
+        <br/>
+        <p>Search size is directly</p>
+        <p>proportional to strength.</p>
+      
+      <br/>
+      <p>Choose a password from</p>
+      <p>the drop down menu to</p>
+      <p>explore the relationships</p>
+        <p>between password popularity</p>
+        <p>and the spacing between</p>
+        <p>their keystrokes.</p>
+    
+    </div>
+  <div class="dropdown">
+      <button class="dropbtn">Passwords</button>
+      <br/>
+      <select id="myDropdown" onchange="letterSequence(this.value)" style="font-size: 25px">
+          
+          <!-- NAME -->
+          <option value="NAME">NAME</option>
+
+<option value="mike">mike</option>
+<option value="john">john</option>
+<option value="jack">jack</option>
+<option value="fred">fred</option>
+<option value="alex">alex</option>
+<option value="bill">bill</option>
+<option value="dave">dave</option>
+<option value="jake">jake</option>
+<option value="paul">paul</option>
+<option value="mark">mark</option>
+<option value="king">king</option>
+<option value="ford">ford</option>
+<option value="james">james</option>
+<option value="chris">chris</option>
+<option value="david">david</option>
+<option value="jason">jason</option>
+<option value="bubba">bubba</option>
+<option value="buddy">buddy</option>
+<option value="peter">peter</option>
+<option value="scott">scott</option>
+<option value="steve">steve</option>
+<option value="sammy">sammy</option>
+<option value="brian">brian</option>
+<option value="frank">frank</option>
+<option value="billy">billy</option>
+<option value="house">house</option>
+<option value="kevin">kevin</option>
+<option value="teens">teens</option>
+<option value="kelly">kelly</option>
+<option value="jordan">jordan</option>
+<option value="thomas">thomas</option>
+<option value="tigger">tigger</option>
+<option value="robert">robert</option>
+<option value="batman">batman</option>
+<option value="george">george</option>
+<option value="andrew">andrew</option>
+<option value="daniel">daniel</option>
+<option value="joshua">joshua</option>
+<option value="maggie">maggie</option>
+<option value="ashley">ashley</option>
+<option value="amanda">amanda</option>
+<option value="nicole">nicole</option>
+<option value="taylor">taylor</option>
+<option value="austin">austin</option>
+<option value="martin">martin</option>
+<option value="bailey">bailey</option>
+<option value="morgan">morgan</option>
+<option value="mickey">mickey</option>
+<option value="justin">justin</option>
+<option value="joseph">joseph</option>
+<option value="smokey">smokey</option>
+<option value="dakota">dakota</option>
+<option value="andrea">andrea</option>
+<option value="johnny">johnny</option>
+<option value="scooby">scooby</option>
+<option value="brandy">brandy</option>
+<option value="steven">steven</option>
+<option value="boston">boston</option>
+<option value="barney">barney</option>
+<option value="edward">edward</option>
+<option value="london">london</option>
+<option value="hannah">hannah</option>
+<option value="rachel">rachel</option>
+<option value="oliver">oliver</option>
+<option value="mother">mother</option>
+<option value="jasper">jasper</option>
+<option value="murphy">murphy</option>
+<option value="prince">prince</option>
+<option value="wilson">wilson</option>
+<option value="carlos">carlos</option>
+<option value="willie">willie</option>
+<option value="angela">angela</option>
+<option value="lauren">lauren</option>
+<option value="dennis">dennis</option>
+<option value="jackie">jackie</option>
+<option value="sophie">sophie</option>
+<option value="toyota">toyota</option>
+<option value="sierra">sierra</option>
+<option value="debbie">debbie</option>
+<option value="jeremy">jeremy</option>
+<option value="casper">casper</option>
+<option value="sandra">sandra</option>
+<option value="cooper">cooper</option>
+<option value="driver">driver</option>
+<option value="tucker">tucker</option>
+<option value="monica">monica</option>
+<option value="canada">canada</option>
+<option value="nathan">nathan</option>
+<option value="victor">victor</option>
+<option value="doctor">doctor</option>
+<option value="freddy">freddy</option>
+<option value="alexis">alexis</option>
+<option value="xavier">xavier</option>
+<option value="calvin">calvin</option>
+<option value="samson">samson</option>
+<option value="walter">walter</option>
+<option value="beavis">beavis</option>
+<option value="bonnie">bonnie</option>
+<option value="skippy">skippy</option>
+<option value="sydney">sydney</option>
+<option value="gordon">gordon</option>
+<option value="travis">travis</option>
+<option value="parker">parker</option>
+<option value="arthur">arthur</option>
+<option value="donald">donald</option>
+<option value="august">august</option>
+<option value="willow">willow</option>
+<option value="carter">carter</option>
+<option value="albert">albert</option>
+<option value="shelby">shelby</option>
+<option value="jessie">jessie</option>
+<option value="nissan">nissan</option>
+<option value="marvin">marvin</option>
+<option value="teresa">teresa</option>
+<option value="sharon">sharon</option>
+<option value="stella">stella</option>
+<option value="nelson">nelson</option>
+<option value="louise">louise</option>
+<option value="mexico">mexico</option>
+<option value="gibson">gibson</option>
+<option value="marcus">marcus</option>
+<option value="cassie">cassie</option>
+<option value="chance">chance</option>
+<option value="jester">jester</option>
+<option value="michael">michael</option>
+<option value="charlie">charlie</option>
+<option value="jessica">jessica</option>
+<option value="william">william</option>
+<option value="heather">heather</option>
+<option value="matthew">matthew</option>
+<option value="chelsea">chelsea</option>
+<option value="patrick">patrick</option>
+<option value="richard">richard</option>
+<option value="anthony">anthony</option>
+<option value="jackson">jackson</option>
+<option value="ferrari">ferrari</option>
+<option value="melissa">melissa</option>
+<option value="charles">charles</option>
+<option value="brandon">brandon</option>
+<option value="chicago">chicago</option>
+<option value="johnson">johnson</option>
+<option value="chester">chester</option>
+<option value="crystal">crystal</option>
+<option value="shannon">shannon</option>
+<option value="cameron">cameron</option>
+<option value="madison">madison</option>
+<option value="jasmine">jasmine</option>
+<option value="tiffany">tiffany</option>
+<option value="winston">winston</option>
+<option value="newyork">newyork</option>
+<option value="maxwell">maxwell</option>
+<option value="florida">florida</option>
+<option value="peaches">peaches</option>
+<option value="rebecca">rebecca</option>
+<option value="america">america</option>
+<option value="gregory">gregory</option>
+<option value="cartman">cartman</option>
+<option value="nirvana">nirvana</option>
+<option value="vampire">vampire</option>
+<option value="fantasy">fantasy</option>
+<option value="natasha">natasha</option>
+<option value="jennifer">jennifer</option>
+<option value="superman">superman</option>
+<option value="michelle">michelle</option>
+<option value="samantha">samantha</option>
+<option value="mercedes">mercedes</option>
+<option value="marlboro">marlboro</option>
+<option value="victoria">victoria</option>
+<option value="liverpoo">liverpoo</option>
+<option value="danielle">danielle</option>
+<option value="nicholas">nicholas</option>
+<option value="jonathan">jonathan</option>
+<option value="williams">williams</option>
+<option value="garfield">garfield</option>
+<option value="christin">christin</option>
+<option value="december">december</option>
+<option value="benjamin">benjamin</option>
+<option value="brooklyn">brooklyn</option>
+<option value="michigan">michigan</option>
+<option value="guinness">guinness</option>
+<option value="einstein">einstein</option>
+<option value="snowball">snowball</option>
+<option value="alexande">alexande</option>
+
+          
+          <!-- COOL -->
+          <option value="COOL">COOL</option>
+
+        <option value="sexy">sexy</option>
+<option value="bear">bear</option>
+<option value="fire">fire</option>
+<option value="beer">beer</option>
+<option value="rock">rock</option>
+<option value="cool">cool</option>
+<option value="free">free</option>
+<option value="money">money</option>
+<option value="black">black</option>
+<option value="power">power</option>
+<option value="viper">viper</option>
+<option value="chevy">chevy</option>
+<option value="shadow">shadow</option>
+<option value="master">master</option>
+<option value="harley">harley</option>
+<option value="hunter">hunter</option>
+<option value="ranger">ranger</option>
+<option value="buster">buster</option>
+<option value="killer">killer</option>
+<option value="hammer">hammer</option>
+<option value="sparky">sparky</option>
+<option value="cowboy">cowboy</option>
+<option value="camaro">camaro</option>
+<option value="guitar">guitar</option>
+<option value="iceman">iceman</option>
+<option value="knight">knight</option>
+<option value="player">player</option>
+<option value="junior">junior</option>
+<option value="miller">miller</option>
+<option value="fender">fender</option>
+<option value="marine">marine</option>
+<option value="winter">winter</option>
+<option value="winner">winner</option>
+<option value="maddog">maddog</option>
+<option value="rocket">rocket</option>
+<option value="member">member</option>
+<option value="voodoo">voodoo</option>
+<option value="apollo">apollo</option>
+<option value="flyers">flyers</option>
+<option value="legend">legend</option>
+<option value="bigboy">bigboy</option>
+<option value="copper">copper</option>
+<option value="surfer">surfer</option>
+<option value="action">action</option>
+<option value="adidas">adidas</option>
+<option value="walker">walker</option>
+<option value="police">police</option>
+<option value="magnum">magnum</option>
+<option value="speedy">speedy</option>
+<option value="sniper">sniper</option>
+<option value="hotrod">hotrod</option>
+<option value="reddog">reddog</option>
+<option value="mustang">mustang</option>
+<option value="thunder">thunder</option>
+<option value="scooter">scooter</option>
+<option value="porsche">porsche</option>
+<option value="monster">monster</option>
+<option value="captain">captain</option>
+<option value="trouble">trouble</option>
+<option value="success">success</option>
+<option value="warrior">warrior</option>
+<option value="jackass">jackass</option>
+<option value="phantom">phantom</option>
+<option value="therock">therock</option>
+<option value="nothing">nothing</option>
+<option value="playboy">playboy</option>
+<option value="pumpkin">pumpkin</option>
+<option value="corvette">corvette</option>
+<option value="maverick">maverick</option>
+<option value="hardcore">hardcore</option>
+<option value="bigdaddy">bigdaddy</option>
+<option value="midnight">midnight</option>
+<option value="mountain">mountain</option>
+<option value="metallic">metallic</option>
+<option value="godzilla">godzilla</option>
+<option value="lifehack">lifehack</option>
+<option value="platinum">platinum</option>
+<option value="airborne">airborne</option>
+<option value="explorer">explorer</option>
+          
+            <!-- EASY -->
+          <option value="EASY">EASY</option>
+
+          <option value="1234">1234</option>
+<option value="2000">2000</option>
+<option value="6969">6969</option>
+<option value="1111">1111</option>
+<option value="asdf">asdf</option>
+<option value="5150">5150</option>
+<option value="2112">2112</option>
+<option value="1212">1212</option>
+<option value="7777">7777</option>
+<option value="2222">2222</option>
+<option value="4444">4444</option>
+<option value="1313">1313</option>
+<option value="xxxx">xxxx</option>
+<option value="12345">12345</option>
+<option value="hello">hello</option>
+<option value="ou812">ou812</option>
+<option value="11111">11111</option>
+<option value="qwert">qwert</option>
+<option value="123456">123456</option>
+<option value="qwerty">qwerty</option>
+<option value="696969">696969</option>
+<option value="abc123">abc123</option>
+<option value="111111">111111</option>
+<option value="654321">654321</option>
+<option value="123123">123123</option>
+<option value="666666">666666</option>
+<option value="121212">121212</option>
+<option value="asdfgh">asdfgh</option>
+<option value="aaaaaa">aaaaaa</option>
+<option value="131313">131313</option>
+<option value="zxcvbn">zxcvbn</option>
+<option value="xxxxxx">xxxxxx</option>
+<option value="qazwsx">qazwsx</option>
+<option value="112233">112233</option>
+<option value="222222">222222</option>
+<option value="777777">777777</option>
+<option value="987654">987654</option>
+<option value="red123">red123</option>
+<option value="232323">232323</option>
+<option value="zzzzzz">zzzzzz</option>
+<option value="555555">555555</option>
+<option value="eagle1">eagle1</option>
+<option value="123321">123321</option>
+<option value="999999">999999</option>
+<option value="333333">333333</option>
+<option value="123abc">123abc</option>
+<option value="888888">888888</option>
+<option value="1234567">1234567</option>
+<option value="ncc1701">ncc1701</option>
+<option value="thx1138">thx1138</option>
+<option value="zxcvbnm">zxcvbnm</option>
+<option value="7777777">7777777</option>
+<option value="8675309">8675309</option>
+<option value="bond007">bond007</option>
+<option value="heka6w2">heka6w2</option>
+<option value="test123">test123</option>
+<option value="12345678">12345678</option>
+<option value="trustno1">trustno1</option>
+<option value="11111111">11111111</option>
+<option value="xxxxxxxx">xxxxxxxx</option>
+<option value="88888888">88888888</option>
+<option value="qwertyui">qwertyui</option>
+<option value="rush2112">rush2112</option>
+<option value="asdfasdf">asdfasdf</option>
+<option value="69696969">69696969</option>
+<option value="jordan23">jordan23</option>
+<option value="87654321">87654321</option>
+<option value="123456789">123456789</option>
+
+          <!-- FLUFFY -->
+          <option value="FLUFFY">FLUFFY</option>
+
+<option value="love">love</option>
+<option value="blue">blue</option>
+<option value="star">star</option>
+<option value="baby">baby</option>
+<option value="girl">girl</option>
+<option value="angel">angel</option>
+<option value="girls">girls</option>
+<option value="green">green</option>
+<option value="lucky">lucky</option>
+<option value="happy">happy</option>
+<option value="lover">lover</option>
+<option value="magic">magic</option>
+<option value="super">super</option>
+<option value="white">white</option>
+<option value="sweet">sweet</option>
+<option value="kitty">kitty</option>
+<option value="silver">silver</option>
+<option value="orange">orange</option>
+<option value="ginger">ginger</option>
+<option value="summer">summer</option>
+<option value="yellow">yellow</option>
+<option value="purple">purple</option>
+<option value="cookie">cookie</option>
+<option value="peanut">peanut</option>
+<option value="booboo">booboo</option>
+<option value="golden">golden</option>
+<option value="iwantu">iwantu</option>
+<option value="angels">angels</option>
+<option value="flower">flower</option>
+<option value="lovers">lovers</option>
+<option value="gemini">gemini</option>
+<option value="heaven">heaven</option>
+<option value="little">little</option>
+<option value="kitten">kitten</option>
+<option value="dreams">dreams</option>
+<option value="diamond">diamond</option>
+<option value="forever">forever</option>
+<option value="rainbow">rainbow</option>
+<option value="scorpio">scorpio</option>
+<option value="private">private</option>
+<option value="panties">panties</option>
+<option value="sunshine">sunshine</option>
+<option value="princess">princess</option>
+<option value="iloveyou">iloveyou</option>
+          
+      
+<!-- SPORT -->    
+          <option value="SPORT">SPORT</option>
+
+<option value="golf">golf</option>
+<option value="soccer">soccer</option>
+<option value="hockey">hockey</option>
+<option value="dallas">dallas</option>
+<option value="golfer">golfer</option>
+<option value="nascar">nascar</option>
+<option value="eagles">eagles</option>
+<option value="tennis">tennis</option>
+<option value="lakers">lakers</option>
+<option value="yamaha">yamaha</option>
+<option value="redsox">redsox</option>
+<option value="viking">viking</option>
+<option value="giants">giants</option>
+<option value="united">united</option>
+<option value="gunner">gunner</option>
+<option value="braves">braves</option>
+<option value="yankee">yankee</option>
+<option value="blazer">blazer</option>
+<option value="runner">runner</option>
+<option value="bronco">bronco</option>
+<option value="racing">racing</option>
+<option value="celtic">celtic</option>
+<option value="yankees">yankees</option>
+<option value="cowboys">cowboys</option>
+<option value="rangers">rangers</option>
+<option value="raiders">raiders</option>
+<option value="fishing">fishing</option>
+<option value="arsenal">arsenal</option>
+<option value="packers">packers</option>
+<option value="broncos">broncos</option>
+<option value="cricket">cricket</option>
+<option value="baseball">baseball</option>
+<option value="football">football</option>
+<option value="steelers">steelers</option>
+<option value="redskins">redskins</option>
+<option value="redwings">redwings</option>
+
+              
+          <!-- ANIMAL -->
+          <option value="ANIMAL">ANIMAL</option>
+
+            <option value="fish">fish</option>
+        <option value="wolf">wolf</option>
+        <option value="tiger">tiger</option>
+        <option value="eagle">eagle</option>
+        <option value="dragon">dragon</option>
+        <option value="monkey">monkey</option>
+        <option value="bigdog">bigdog</option>
+        <option value="falcon">falcon</option>
+        <option value="tigers">tigers</option>
+        <option value="spider">spider</option>
+        <option value="rabbit">rabbit</option>
+        <option value="turtle">turtle</option>
+        <option value="gators">gators</option>
+        <option value="jaguar">jaguar</option>
+        <option value="tomcat">tomcat</option>
+        <option value="beaver">beaver</option>
+        <option value="doggie">doggie</option>
+        <option value="birdie">birdie</option>
+        <option value="animal">animal</option>
+        <option value="donkey">donkey</option>
+        <option value="phoenix">phoenix</option>
+        <option value="chicken">chicken</option>
+        <option value="bulldog">bulldog</option>
+        <option value="panther">panther</option>
+        <option value="dolphin">dolphin</option>
+        <option value="buffalo">buffalo</option>
+        <option value="dolphins">dolphins</option>
+        <option value="scorpion">scorpion</option>
+        <option value="elephant">elephant</option>
+          
+          
+        <!-- NERDY -->
+          <option value="NERDY">NERDY</option>
+
+<option value="merlin">merlin</option>
+<option value="matrix">matrix</option>
+<option value="snoopy">snoopy</option>
+<option value="boomer">boomer</option>
+<option value="compaq">compaq</option>
+<option value="wizard">wizard</option>
+<option value="diablo">diablo</option>
+<option value="slayer">slayer</option>
+<option value="theman">theman</option>
+<option value="topgun">topgun</option>
+<option value="saturn">saturn</option>
+<option value="online">online</option>
+<option value="dexter">dexter</option>
+<option value="gandalf">gandalf</option>
+<option value="rosebud">rosebud</option>
+<option value="voyager">voyager</option>
+<option value="trinity">trinity</option>
+<option value="digital">digital</option>
+<option value="beatles">beatles</option>
+<option value="genesis">genesis</option>
+<option value="college">college</option>
+<option value="starwars">starwars</option>
+<option value="computer">computer</option>
+<option value="startrek">startrek</option>
+          
+          
+          <!-- PWORD RELATED -->
+          <option value="PASSWORD">PASSWORD</option>
+
+          <option value="test">test</option>
+<option value="pass">pass</option>
+<option value="enter">enter</option>
+<option value="access">access</option>
+<option value="please">please</option>
+<option value="helpme">helpme</option>
+<option value="pookie">pookie</option>
+<option value="tester">tester</option>
+<option value="letmein">letmein</option>
+<option value="gateway">gateway</option>
+<option value="welcome">welcome</option>
+<option value="testing">testing</option>
+<option value="password">password</option>
+<option value="internet">internet</option>
+<option value="passw0rd">passw0rd</option>
+
+          <!-- RUDE -->
+          <option value="RUDE">RUDE</option>
+
+<option value="biteme">biteme</option>
+<option value="freedom">freedom</option>
+<option value="secret">secret</option>
+<option value="whatever">whatever</option>
+<option value="badboy">badboy</option>
+<option value="sexsex">sexsex</option>
+<option value="butthead">butthead</option>
+<option value="booger">booger</option>
+<option value="stupid">stupid</option>
+<option value="horny">horny</option>
+<option value="sucker">sucker</option>
+
+          
+          <!--FOOD-->
+          <option value="FOOD">FOOD</option>
+
+<option value="apple">apple</option>
+<option value="pepper">pepper</option>
+<option value="cheese">cheese</option>
+<option value="coffee">coffee</option>
+<option value="banana">banana</option>
+<option value="butter">butter</option>
+<option value="muffin">muffin</option>
+<option value="hotdog">hotdog</option>
+<option value="apples">apples</option>
+<option value="cherry">cherry</option>
+<option value="cocacola">cocacola</option>
+        </select>
+</div>
+
+<script>
+/* When the user clicks on the button, 
+toggle between hiding and showing the dropdown content */
+function startDropdown() {
+    document.getElementById("myDropdown").classList.toggle("show");
+}
+
+// Close the dropdown if the user clicks outside of it
+    // https://bl.ocks.org/mbostock/5872848
+
+</script>
+    
+<script type="text/javascript">
+
+var w = 110,
+    h = 60,
+    x = d3.scale.linear().range([0, w]),
+    y = d3.scale.linear().range([0, h]);
+
+var vis = d3.select("#body").append("div")
+    .attr("class", "chart")
+    .style("width", w + "px")
+    .style("height", h + "px")
+    .style("position","absolute")
+    .style("top","0px")
+    .append("svg:svg")
+    .attr("width", w)
+    .attr("height", h);
+
+var partition = d3.layout.partition()
+    .value(function(d) { return d.size; });
+
+d3.json("passwords2.json", function(root) {
+  var g = vis.selectAll("g")
+      .data(partition.nodes(root))
+    .enter().append("svg:g")
+      .attr("transform", function(d) { return "translate(" + x(d.y) + "," + y(d.x) + ")"; })
+      .on("click", click);
+
+  var kx = w / root.dx,
+      ky = h / 1;
+
+  g.append("svg:rect")
+      .attr("width", root.dy * kx)
+      .attr("height", function(d) { return d.dx * ky; })
+      .attr("class", function(d) { return "q"+d.name.replace(".","").replace("+","").replace(",","").replace(",",""); }) //returns name of the rectangle (eg. animal, cool, ... )
+    .style("fill", function(d, i){
+        if(!d.name.match("500 Most Common Passwords|name|cool / macho|easy|fluffy|sport|animal|nerdy / pop cultural|password related|rude|food") // if the name is not any of the categories or the title
+         ){ // now check each search size and assign it a color 
+            
+            // https://www.w3schools.com/js/js_regexp.asp
+            
+            //ordered smallest to biggest 
+           
+           if(d.name.match("\^11,110 Possible searches")){
+                return "#5b90ec"; //blue-purple
+            }
+            
+            else if(d.name.match("\^111,110 possible searches")){ //works
+                return "#5bdcec"; //blue
+            }
+                    
+            else if(d.name.match("475,254 possible searches")){
+                return "#5becb5"; //green-blue
+            }
+            else if(d.name.match("\^1,111,110 possible searches")){ // works 
+                return "#5bec66"; //green
+            }
+            else if(d.name.match("\^11.1 million possible searches")){ // works 
+                return "#b3ec5b"; //yellow-green
+            }
+            
+            else if(d.name.match("12.4 million possible searches")){
+                return "#eceb5b"; //yellow
+            }
+            
+           else if(d.name.match("110 million possible searches")){ // works 
+                return "#eccf5b"; //orange-yellow
+            }
+            
+            
+            else if(d.name.match("321 million possible searches")){
+                return "#ec965b"; //orange
+            }
+            
+            else if(d.name.match("1 billion possible searches")){ //this works 
+                return "#ec775b";  //red-orange
+            }
+            
+            
+            else if(d.name.match("8.35 billion possible searches")){
+                return "#e05929"; //lighter red
+            }
+            
+            else if(d.name.match("217 billion possible searches")){
+                return "#de3735"; //really red
+            }
+            
+            
+            else{ // if the name is not one of the search sizes (nor one of the categories, but  that was addressed earlier)
+                return "#"+Math.floor(Math.random()*16777215).toString(16);
+                // https://www.paulirish.com/2009/random-hex-color-code-snippets/
+            }
+        }
+      
+  });
+  
+    //but put a "q" in front b/c otherwise some classes would begin w/ a number... 
+
+  g.append("svg:text")
+      .attr("transform", transform)
+      .attr("dy", ".35em")
+      .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; })
+      .text(function(d) { return d.name; })
+      .style("text-transform", "capitalize")
+      .style("fill","white") //change fill of text in boxes 
+        .style("font-size", function(d){return d.dy*90+"px";}) //change size of font 
+        .style("font-family", "sans-serif")
+        //.style("font-weight", "bold"); //this is ugly. don't bold the font
+     
+
+  d3.select(window)
+      .on("click", function() { click(root); })
+
+  function click(d) {
+    if (!d.children) return;
+
+    kx = (d.y ? w - 40 : w) / (1 - d.y);
+    ky = h / d.dx;
+    x.domain([d.y, 1]).range([d.y ? 40 : 0, w]);
+    y.domain([d.x, d.x + d.dx]);
+
+    var t = g.transition()
+        .duration(d3.event.altKey ? 7500 : 750)
+        .attr("transform", function(d) { return "translate(" + x(d.y) + "," + y(d.x) + ")"; });
+
+    t.select("rect")
+        .attr("width", d.dy * kx)
+        .attr("height", function(d) { return d.dx * ky; });
+
+    t.select("text")
+        .attr("transform", transform)
+        .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; })
+
+    d3.event.stopPropagation();
+  }
+
+  function transform(d) {
+    return "translate(8," + d.dx * ky / 2 + ")";
+  }
+});
+
+    </script>
+    <div class ="chart"></div>
+    
+    
+    <div class="selectedPword"></div>
+    
+    <script type="text/javascript">
+        
+//var color = d3.scale.category20c();
+
+var w = 1500,
+    h = 650,
+    x = d3.scale.linear().range([0, w]),
+    y = d3.scale.linear().range([0, h]);
+
+var vis = d3.select(".chart").append("div")
+    .attr("class", "chart")
+    .style("width", w + "px")
+    .style("height", h + "px")
+    .append("svg:svg")
+    .attr("width", w)
+    .attr("height", h);
+
+var partition = d3.layout.partition()
+    .value(function(d) { return d.size; });
+
+d3.json("passwords.json", function(root) {
+  var g = vis.selectAll("g")
+      .data(partition.nodes(root))
+      .enter().append("svg:g")
+      .attr("transform", function(d) { return "translate(" + x(d.y) + "," + y(d.x) + ")"; })
+      .on("click", click);
+
+  var kx = w / root.dx,
+      ky = h * 200;
+
+  g.append("svg:rect")
+      .attr("width", root.dy * kx)
+      .attr("height", function(d) { return d.dx * ky; })
+      .attr("class", function(d) { return "q"+d.name; });
+
+  g.append("svg:text")
+      .attr("transform", transform)
+      .attr("dy", ".35em")
+      .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; })
+      .text(function(d) { return d.name; })
+        
+      
+  d3.select(window)
+      .on("hover", function() { click(root); })
+
+  function click(d) {
+    if (!d.children) return;
+
+    kx = (d.y ? w - 400 : w) / (1 - d.y);
+    ky = h / d.dx;
+    x.domain([d.y, 1]).range([d.y ? 40 : 0, w]);
+    y.domain([d.x, d.x + d.dx]);
+
+    var t = g.transition()
+        .duration(d3.event.altKey ? 7500 : 750)
+        .attr("transform", function(d) { return "translate(" + x(d.y) + "," + y(d.x) + ")"; });
+
+    t.select("rect")
+        .attr("width", d.dy * kx)
+        .attr("height", function(d) { return d.dx * ky; });
+
+    t.select("text")
+        .attr("transform", transform)
+        .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; })
+        ;
+
+    d3.event.stopPropagation();
+  }
+
+  function transform(d) {
+    return "translate(8," + d.dx * ky / 2 + ")";
+  }
+});
+
+    </script>
+    <br/>
+    
+    <!-- KEYBOARD STUFF -->
+    <center>
+    <div id="pwordSpot"></div>
+    <div id="nums"></div>
+    <div id="qwerty"></div>
+    <div id="asdf"></div>
+    <div id="zxcv"></div>
+    </center>
+    <script type="text/javascript">
+        
+        
+        // ****** KEYBOARD SETUP ****** 
+        
+        var nums=['`','1','2','3','4','5','6','7','8','9','0','-','=',' Bksp ']
+        var qwerty=[' Tab ','Q','W','E','R','T','Y','U',' I ','O','P',' [ ',' ] ',' \\ ']
+        var asdf = ['  Caps  ','A','S','D','F','G','H','J','K','L',';', "'",' Enter ']
+        var zxcv = ['      Shift     ', 'Z','X','C','V','B','N','M',',','.','/','     Shift      ']
+        
+    d3.select("#nums").selectAll("keybd0").data(nums).enter().append("input").attr("type","button").attr("class","button").attr("value", function (d){return d;} ).style("background-color","#C6DDF1").style("padding","20px 30px").attr("id", function (d){return d.trim();} )
+    /* select the "nums" div, make some variable, append the button info from the nums dataset */
+    
+    d3.select("#qwerty").selectAll("keybd1").data(qwerty).enter().append("input").attr("type","button").attr("class","button").attr("value", function (d){return d;}).style("background-color","#B1D1ED").style("padding","20px 28px").attr("id", function (d){return d.trim();} )
+    
+    d3.select("#asdf").selectAll("keybd2").data(asdf).enter().append("input").attr("type","button").attr("class","button").attr("value", function (d){return d;}).style("background-color","#A1BED8") .style("padding","20px 30px").attr("id", function (d){return d.trim();} )
+    
+    d3.select("#zxcv").selectAll("keybd3").data(zxcv).enter().append("input").attr("type","button").attr("class","button").attr("value", function (d){return d;}).style("background-color","#91ACC2").attr("id", function (d){return d.trim();} )
+            
+    async function letterSequence(word) {
+        seq = word;
+        
+        var bgColor=[];
+        //var whichRow=[];
+        for (var i = 0; i < seq.length; i++) {
+            char = seq.charAt(i).toUpperCase();
+            document.getElementById(char).style.backgroundColor = "red";
+            await sleep(500);
+            document.getElementById(char).style.backgroundColor = "pink";
+            await sleep(250);
+        }
+        //reset colors
+        for (var i = 0; i < seq.length; i++) {
+            char = seq.charAt(i).toUpperCase();
+            var color;
+            
+            if(nums.includes(char)){
+                color = "#C6DDF1";
+            }
+             else if(qwerty.includes(char)){
+                color = "#B1D1ED";
+            }
+            else if(asdf.includes(char)){
+                color = "#A1BED8";
+            }
+            else if(char=='I'){
+                color = "#B1D1ED";
+            }
+            else {
+                color = "#91ACC2";
+            }
+            
+            document.getElementById(char).style.backgroundColor = color;
+            
+        }
+        
+    };
+        
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    };
+
+    </script>
+
+</body>
+    <!--Works Cited
+        how to use scrolling/deleting text:
+            http://itsolutionstuff.com/post/jquery-animated-typing-effect-using-typed-js-example-with-demoexample.html
+        zoomable icicle
+            https://bl.ocks.org/mbostock/1005873
+        helpful sites (?)
+            http://www.programering.com/a/MTO3IjNwATk.html
+            http://www.jeromecukier.net/blog/2012/05/28/manipulating-data-like-a-boss-with-d3/
+        icicle with static JSON data
+            https://philogb.github.io/jit/static/v20/Jit/Examples/Icicle/example1.code.html
+        icicle with info about what you're looking at & uses CSVs -> also how to make into JSON 7 structure as hierarchy 
+            https://bl.ocks.org/kerryrodden/ce6b7bf97c6b77ee6dde
+        icicle WITH text
+            https://gist.github.com/mbostock/4347473
+        **Partition layout (d3)
+            https://github.com/d3/d3-hierarchy/blob/master/README.md#partition
+        **D3 API
+            https://github.com/d3/d3/blob/master/API.md#hierarchies-d3-hierarchy
+        **D3 hierarchy structure 
+            https://github.com/d3/d3-hierarchy/blob/master/README.md
+        Converting csv -> json              http://www.delimited.io/blog/2013/11/2/creating-nested-json-for-d3
+
+
+
+-->
+</html>
