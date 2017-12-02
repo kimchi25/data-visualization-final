@@ -1,3 +1,4 @@
 # data-visualization-final
 
-[kimchi25.github.io](link)
+[link to visual](kimchi25.github.io/data-visualization-final)
+ 
